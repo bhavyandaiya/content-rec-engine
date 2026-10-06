@@ -28,7 +28,7 @@ flowchart TD
     Reader -->|Logs Interaction| Telemetry
     Telemetry -->|POST /interaction| API
     API --> Processor
-    Processor -->|Target Affinity in [0, 1]| DB
+    Processor -->|Target Affinity in 0, 1| DB
     
     Reader -->|GET /recommend/{user_id}| API
     API --> Hybrid
@@ -68,18 +68,39 @@ The engine blends collaborative filtering and semantic content similarity with d
 
 $$S_{\text{hybrid}}(u, i) = \alpha \cdot S_{\text{CF}}(u, i) + (1 - \alpha) \cdot S_{\text{content}}(u, i) + \beta \cdot S_{\text{category}}(u, i)$$
 
-1. **Two-Tower Neural CF ($S_{\text{CF}}$)**:
-   - User Tower: $u = f_{\text{user}}(\text{user\_id}) \in \mathbb{R}^{64}$ (L2 normalized)
-   - Item Tower: $v = f_{\text{item}}(\text{item\_id}) \in \mathbb{R}^{64}$ (L2 normalized)
-   - Prediction: $S_{\text{CF}} = \frac{\langle u, v \rangle + 1}{2} \in [0.0, 1.0]$
-2. **Dense Semantic Embeddings ($S_{\text{content}}$)**:
-   - Article representations extracted using `all-MiniLM-L6-v2` (384-dimensional dense vectors).
-   - User semantic profile: $u_{\text{content}} = \frac{\sum_{j \in \mathcal{H}_u} A_j \cdot v_j}{\sum_{j \in \mathcal{H}_u} A_j}$.
-   - Similarity: $S_{\text{content}} = \frac{\cos(u_{\text{content}}, v_i) + 1}{2} \in [0.0, 1.0]$.
-3. **Cold-Start Fallback Strategy**:
-   - **Completely Cold-Start Users**: Popularity baseline with category diversity guarantees.
-   - **Warm-Start Users (1-3 interactions)**: Dynamic shift to pure content-based semantic matching ($\alpha = 0.0$).
-   - **Active Readers**: Full Hybrid ($\alpha = 0.60, \beta = 0.10$).
+1. Two-Tower Neural CF (S_{CF}):
+$u = f_{\text{user}}(\text{user_id}) \in \mathbb{R}^{64}$ (L2 normalized)
+$v = f_{\text{item}}(\text{item_id}) \in \mathbb{R}^{64}$ (L2 normalized)
+Prediction: S_{CF} = \frac{\langle u, v \rangle + 1}{2} \in [0.0, 1.0]
+```[cite: 9]
+
+Notice `(S_{CF})` in the header, and `S_{CF} = ...` without bounding `$`: GitHub's KaTeX engine flags this as `'_' allowed only in math mode`[cite: 9].
+
+#### Fix
+Replace the entire **"3. Hybrid Blending & Re-ranking Architecture"** section in `README.md` with clean GitHub-compatible Markdown:
+
+```markdown
+## 3. Hybrid Blending & Re-ranking Architecture
+
+The engine blends collaborative filtering and semantic content similarity with dynamic routing:
+
+$$S_{\text{hybrid}}(u, i) = \alpha \cdot S_{\text{CF}}(u, i) + (1 - \alpha) \cdot S_{\text{content}}(u, i) + \beta \cdot S_{\text{category}}(u, i)$$
+
+### 1. Two-Tower Neural CF ($S_{\text{CF}}$):
+* **User Tower:** $\mathbf{u} = f_{\text{user}}(\text{user\_id}) \in \mathbb{R}^{64}$ (L2 normalized)
+* **Item Tower:** $\mathbf{v} = f_{\text{item}}(\text{item\_id}) \in \mathbb{R}^{64}$ (L2 normalized)
+* **Prediction:** $S_{\text{CF}} = \frac{\langle \mathbf{u}, \mathbf{v} \rangle + 1}{2} \in [0.0, 1.0]$
+
+### 2. Dense Semantic Embeddings ($S_{\text{content}}$):
+* Article representations extracted using `all-MiniLM-L6-v2` (384-dimensional dense vectors).
+* **User Semantic Profile:** 
+  $$\mathbf{u}_{\text{content}} = \frac{\sum_{j \in \mathcal{H}_u} A_j \mathbf{v}_j}{\sum_{j \in \mathcal{H}_u} A_j}$$
+* **Similarity:** $S_{\text{content}} = \frac{\cos(\mathbf{u}_{\text{content}},\, \mathbf{v}_i) + 1}{2} \in [0.0, 1.0]$
+
+### 3. Cold-Start Fallback Strategy:
+* **Known CF Users:** Full hybrid scoring ($\alpha = 0.60, \beta = 0.10$).
+* **Warm-Start Users (New / < 5 reads):** Content-based semantic matching using real-time session history ($\alpha = 0.0$).
+* **Complete Cold-Start:** Category-diverse popularity fallback with real-time impression deduplication.
 
 ---
 
